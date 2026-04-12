@@ -1,0 +1,92 @@
+name: dbt Deploy QUAL
+
+on:
+  push:
+    branches:
+      - qual
+
+jobs:
+  dbt:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: qual
+
+      - name: Fetch ci-artifacts
+        run: |
+          git fetch origin ci-artifacts:ci-artifacts || git checkout --orphan ci-artifacts
+          git checkout ci-artifacts || git checkout -b ci-artifacts
+          
+          mkdir -p ./airbnb/prev_manifest
+          if [ -f manifest.json ]; then
+            cp manifest.json ./airbnb/prev_manifest/manifest.json
+            echo "Manifest copied to prev_manifest"
+          else
+            echo "No manifest found"
+          fi
+          
+          git checkout qual
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Snowflake private key
+        run: |
+          mkdir -p /home/runner/.secrets
+          echo "$SNOWFLAKE_PRIVATE_KEY_B64" | base64 --decode > /home/runner/.secrets/snowflake_key.p8
+          chmod 600 /home/runner/.secrets/snowflake_key.p8
+        env:
+              SNOWFLAKE_PRIVATE_KEY_B64: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}
+              SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+
+      - name: Install dbt
+        run: |
+          pip install dbt-snowflake
+
+      - name: Check previous manifest
+        id: manifest-check
+        run: |
+          if [ -f "./airbnb/prev_manifest/manifest.json" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+        run: dbt deps --project-dir ./airbnb --profiles-dir ./airbnb --target qua
+
+      - name: Build only changed models - Deploy to QUAL
+        if: steps.manifest-check.outputs.exists == 'true' && github.ref == 'refs/heads/qual'
+        run: dbt build --profiles-dir ./airbnb --project-dir ./airbnb --target qua --select state:modified+ --state ./prev_manifest
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+
+      - name: Build full project (no manifest available) - Deploy to QUAL
+        if: steps.manifest-check.outputs.exists == 'false' && github.ref == 'refs/heads/qual'
+        run: dbt build --profiles-dir ./airbnb --project-dir ./airbnb --target qua --full-refresh
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+
+      - name: Save new manifest
+        run: |
+          git reset --hard
+          git clean -fd
+          git fetch origin ci-artifacts || true
+          git checkout -B ci-artifacts origin/ci-artifacts || git checkout -b ci-artifacts
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          cp ./airbnb/target/manifest.json ./manifest.json
+          git add manifest.json
+
+          git commit -m "Update dbt manifest for run ${{ github.run_id }}" || echo "No changes to commit"
+
+          git push origin ci-artifacts --force
