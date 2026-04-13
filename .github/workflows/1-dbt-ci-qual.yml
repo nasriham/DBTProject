@@ -1,0 +1,86 @@
+name: dbt CI QUAL
+
+on:
+  pull_request:
+    branches:
+      - qual
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    env:
+      DBT_PROFILES_DIR: .
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Snowflake private key
+        run: |
+          mkdir -p /home/runner/.secrets
+          echo "$SNOWFLAKE_PRIVATE_KEY_B64" | base64 --decode > /home/runner/.secrets/snowflake_key.p8
+          chmod 600 /home/runner/.secrets/snowflake_key.p8
+        env:
+            SNOWFLAKE_PRIVATE_KEY_B64: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}
+            SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+
+      - name: Debug key
+        run: |
+          ls -l $HOME/.secrets
+          head -n 2 $HOME/.secrets/snowflake_key.p8
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dbt-snowflake
+        run: pip install dbt-snowflake
+
+      - name: Génération du schéma temporaire
+        id: schema-temp
+        run: |
+          SCHEMA_NAME="CI_${{ github.run_id }}_${{ github.ref_name }}"
+          echo "schema_name=${SCHEMA_NAME//[^A-Za-z0-9_]/_}" >> $GITHUB_OUTPUT
+
+      - name: Create profiles.yml
+        run: |
+          mkdir -p ./airbnb
+          cat <<EOF > ./airbnb/profiles.yml
+            airbnb:
+              target: ci
+              outputs:
+                ci:
+                  type: snowflake
+                  account: "${{ secrets.SNOWFLAKE_ACCOUNT }}"
+                  user: "${{ secrets.SNOWFLAKE_USER }}"
+                  private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+                  role: "${{ secrets.SNOWFLAKE_ROLE }}"
+                  warehouse: "${{ secrets.SNOWFLAKE_WAREHOUSE }}"
+                  database: "${{ secrets.SNOWFLAKE_DATABASE_DEV }}"
+                  schema: "${{ steps.schema-temp.outputs.schema_name }}"
+          EOF
+
+      - name: Install dependencies
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+        run: dbt deps --project-dir ./airbnb --profiles-dir ./airbnb --target ci
+
+      - name: Create temporary schema (via dbt macro)
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+        run: |
+          dbt run-operation create_schema --project-dir ./airbnb --profiles-dir ./airbnb --target ci --args "{\"relation\": \"${{ steps.schema-temp.outputs.schema_name }}\"}"
+
+      - name: Run dbt build on temp schema
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+        run: dbt build --project-dir ./airbnb --profiles-dir ./airbnb --target ci --full-refresh
+
+      - name: Drop temporary schema (via dbt macro)
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+        if: always()
+        run: |
+            dbt run-operation drop_schema_like --project-dir ./airbnb --profiles-dir ./airbnb --args "{\"prefix\": \"${{ steps.schema-temp.outputs.schema_name }}\"}"
