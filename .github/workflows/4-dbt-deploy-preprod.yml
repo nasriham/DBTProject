@@ -1,0 +1,104 @@
+name: dbt Deploy PREPROD
+
+on:
+  push:
+    branches:
+      - preprod
+
+jobs:
+  dbt:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: preprod
+
+      - name: Fetch cd-artifacts
+        run: |
+          git fetch origin cd-artifacts-ppd:cd-artifacts-ppd || git checkout --orphan cd-artifacts-ppd
+          git checkout cd-artifacts-ppd || git checkout -b cd-artifacts-ppd
+          
+          mkdir -p ./airbnb/prev_manifest
+          if [ -f manifest.json ]; then
+            cp manifest.json ./airbnb/prev_manifest/manifest.json
+            echo "Manifest copied to prev_manifest"
+          else
+            echo "No manifest found"
+          fi
+          
+          git checkout preprod
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Setup Snowflake private key
+        run: |
+          mkdir -p /home/runner/.secrets
+          echo "$SNOWFLAKE_PRIVATE_KEY_B64" | base64 --decode > /home/runner/.secrets/snowflake_key.p8
+          chmod 600 /home/runner/.secrets/snowflake_key.p8
+        env:
+              SNOWFLAKE_PRIVATE_KEY_B64: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}
+              SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+
+      - name: Install dbt
+        run: |
+          pip install dbt-snowflake
+
+      - name: Check previous manifest
+        id: manifest-check
+        run: |
+          if [ -f "./airbnb/prev_manifest/manifest.json" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+        run: dbt deps --project-dir ./airbnb --profiles-dir ./airbnb --target ppd
+
+      - name: Build only changed models - Deploy to PREPROD
+        if: steps.manifest-check.outputs.exists == 'true' && github.ref == 'refs/heads/preprod'
+        run: dbt build --profiles-dir ./airbnb --project-dir ./airbnb --target ppd --select state:modified+ --state ./prev_manifest
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+
+      - name: Build full project (no manifest available) - Deploy to PREPROD
+        if: steps.manifest-check.outputs.exists == 'false' && github.ref == 'refs/heads/preprod'
+        run: dbt build --profiles-dir ./airbnb --project-dir ./airbnb --target ppd --full-refresh
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+
+      - name: Generate dbt docs
+        run: dbt docs generate --profiles-dir ./airbnb --project-dir ./airbnb --target ppd
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+
+      - name: Deploy docs to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./airbnb/target
+          publish_branch: gh-pages
+
+      - name: Save new manifest
+        run: |
+          git reset --hard
+          git clean -fd
+          git fetch origin cd-artifacts-ppd || true
+          git checkout -B cd-artifacts-ppd origin/cd-artifacts-ppd || git checkout -b cd-artifacts-ppd
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          cp ./airbnb/target/manifest.json ./manifest.json
+          git add manifest.json
+
+          git commit -m "Update dbt manifest for run ${{ github.run_id }}" || echo "No changes to commit"
+
+          git push origin cd-artifacts-ppd --force

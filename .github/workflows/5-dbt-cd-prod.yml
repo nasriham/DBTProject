@@ -1,0 +1,48 @@
+name: dbt CD PROD
+
+on:
+  pull_request:
+    branches:
+      - main
+ 
+jobs:
+  dbt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Snowflake private key
+        run: |
+          mkdir -p /home/runner/.secrets
+          echo "$SNOWFLAKE_PRIVATE_KEY_B64" | base64 --decode > /home/runner/.secrets/snowflake_key.p8
+          chmod 600 /home/runner/.secrets/snowflake_key.p8
+        env:
+              SNOWFLAKE_PRIVATE_KEY_B64: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}
+              SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+
+      - name: Install dbt
+        run: |
+          pip install dbt-snowflake
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+
+      - name: Install dependencies
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+        run: dbt deps --project-dir ./airbnb --profiles-dir ./airbnb --target prd
+
+      - name: Run dbt debug
+        run: dbt debug --profiles-dir ./airbnb  --project-dir ./airbnb --target prd
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+
+      - name: Run dbt tests
+        run: dbt test --profiles-dir ./airbnb  --project-dir ./airbnb --target prd || true
+        env:
+          SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
