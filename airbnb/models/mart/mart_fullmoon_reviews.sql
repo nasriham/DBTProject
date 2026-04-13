@@ -14,11 +14,7 @@ SELECT
   CASE
     WHEN fm.full_moon_date IS NULL THEN 'not full moon'
     ELSE 'full moon'
-  END AS is_full_moon
-  , sum ( (CASE
-    WHEN fm.full_moon_date IS NULL THEN 0
-    ELSE 1
-  END)) as number_full_moon_date
+  END AS is_full_moon_date
 FROM
   fct_reviews
   r
