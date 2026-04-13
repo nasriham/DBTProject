@@ -14,7 +14,7 @@ SELECT
   CASE
     WHEN fm.full_moon_date IS NULL THEN 'not full moon'
     ELSE 'full moon'
-  END AS is_full_moons_da
+  END AS is_full_moons_
 FROM
   fct_reviews
   r
