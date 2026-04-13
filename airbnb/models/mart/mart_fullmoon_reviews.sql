@@ -18,7 +18,7 @@ SELECT
   , sum ( (CASE
     WHEN fm.full_moon_date IS NULL THEN 0
     ELSE 1
-  END)) as number_full_moon
+  END)) as number_full_moon_date
 FROM
   fct_reviews
   r
