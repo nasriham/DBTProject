@@ -1,0 +1,24 @@
+# Local dbt Snowflake profile.
+# Set these environment variables before running dbt locally:
+#   $env:SNOWFLAKE_ACCOUNT
+#   $env:SNOWFLAKE_USER
+#   $env:SNOWFLAKE_ROLE
+#   $env:SNOWFLAKE_PRIVATE_KEY_PATH
+#   $env:SNOWFLAKE_PRIVATE_KEY_PASSPHRASE
+#   $env:SNOWFLAKE_DATABASE_DEV
+#   $env:SCHEMA_NAME
+#   $env:SNOWFLAKE_WAREHOUSE
+airbnb:
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE') }}"
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE_DEV') }}"
+      schema: "{{ env_var('SCHEMA_NAME') }}"
+      threads: 1
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
+  target: dev
