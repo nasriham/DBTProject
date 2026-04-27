@@ -12,4 +12,15 @@ airbnb:
       schema: DEV
       threads: 1
       warehouse: COMPUTE_WH
+    qua:
+      account: MMOJZBP-TX79176
+      database: AIRBNB_QUA
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
+      role: TRANSFORM
+      schema: QUAL
+      threads: 4
+      type: snowflake
+      user: dbt
+      warehouse: COMPUTE_WH
   target: dev
