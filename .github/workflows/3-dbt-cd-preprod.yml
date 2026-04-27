@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - preprod
+  workflow_dispatch:
  
 jobs:
   dbt:
@@ -26,24 +27,29 @@ jobs:
         env:
               SNOWFLAKE_PRIVATE_KEY_B64: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}
               SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+              SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
 
       - name: Install dbt
         run: |
           pip install dbt-snowflake
         env:
           SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
 
       - name: Install dependencies
         env:
           SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
         run: dbt deps --project-dir ./airbnb --profiles-dir ./airbnb --target ppd
 
       - name: Run dbt debug
         run: dbt debug --profiles-dir ./airbnb  --project-dir ./airbnb --target ppd
         env:
           SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
 
       - name: Run dbt tests
         run: dbt test --profiles-dir ./airbnb  --project-dir ./airbnb --target ppd || true
         env:
           SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
