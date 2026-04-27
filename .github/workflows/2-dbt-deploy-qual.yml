@@ -43,6 +43,7 @@ jobs:
         env:
               SNOWFLAKE_PRIVATE_KEY_B64: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}
               SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+              SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
 
       - name: Install dbt
         run: |
@@ -60,6 +61,7 @@ jobs:
       - name: Install dependencies
         env:
           SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
         run: dbt deps --project-dir ./airbnb --profiles-dir ./airbnb --target qua
 
       - name: Build only changed models - Deploy to QUAL
@@ -67,12 +69,14 @@ jobs:
         run: dbt build --profiles-dir ./airbnb --project-dir ./airbnb --target qua --select state:modified+ --state ./prev_manifest
         env:
           SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
 
       - name: Build full project (no manifest available) - Deploy to QUAL
         if: steps.manifest-check.outputs.exists == 'false' && github.ref == 'refs/heads/qual'
         run: dbt build --profiles-dir ./airbnb --project-dir ./airbnb --target qua --full-refresh
         env:
           SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
 
       - name: Save new manifest
         run: |
