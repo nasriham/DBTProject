@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - qual
-      workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   dbt:
