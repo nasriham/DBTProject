@@ -1,25 +1,47 @@
 airbnb:
   outputs:
     dev:
-      type: snowflake
-      account: mmojzbp-tx79176
-      user: dbt
+      account: MMOJZBP-TX79176
+      database: AIRBNB_DEV
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
       role: TRANSFORM
-      private_key_path: '{{ env_var(''SNOWFLAKE_PRIVATE_KEY_PATH'') }}'
-      private_key_passphrase: q
-      database: AIRBNB
-      schema: DEV
-      threads: 1
+      schema: S_BI
+      threads: 4
+      type: snowflake
+      user: dbt
       warehouse: COMPUTE_WH
     qua:
-      account: mmojzbp-tx7917
+      account: MMOJZBP-TX79176
       database: AIRBNB_QUA
-      private_key_path: '{{ env_var(''SNOWFLAKE_PRIVATE_KEY_PATH'') }}'
-      private_key_passphrase: q
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
       role: TRANSFORM
-      schema: QUAL
-      threads: 1
+      schema: S_BI
+      threads: 4
       type: snowflake
-      user: dbt_qual
+      user: dbt
+      warehouse: COMPUTE_WH
+    ppd:
+      account: MMOJZBP-TX79176
+      database: AIRBNB_PPD
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
+      role: TRANSFORM
+      schema: S_BI
+      threads: 4
+      type: snowflake
+      user: dbt
+      warehouse: COMPUTE_WH
+    prd:
+      account: MMOJZBP-TX79176
+      database: AIRBNB_PROD
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
+      role: TRANSFORM
+      schema: S_BI
+      threads: 4
+      type: snowflake
+      user: dbt
       warehouse: COMPUTE_WH
   target: dev
