@@ -23,4 +23,4 @@ airbnb:
       type: snowflake
       user: dbt
       warehouse: COMPUTE_WH
-  target: dev
+  target: qua
