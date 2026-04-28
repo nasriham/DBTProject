@@ -43,6 +43,7 @@ jobs:
         env:
               SNOWFLAKE_PRIVATE_KEY_B64: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_B64 }}
               SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+              SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
 
       - name: Install dbt
         run: |
@@ -60,6 +61,7 @@ jobs:
       - name: Install dependencies
         env:
           SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
         run: dbt deps --project-dir ./airbnb --profiles-dir ./airbnb --target prd
 
       - name: Build only changed models - Deploy to PROD
@@ -67,17 +69,20 @@ jobs:
         run: dbt build --profiles-dir ./airbnb --project-dir ./airbnb --target prd --select state:modified+ --state ./prev_manifest
         env:
           SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
 
       - name: Build full project (no manifest available) - Deploy to PROD
         if: steps.manifest-check.outputs.exists == 'false' && github.ref == 'refs/heads/main'
         run: dbt build --profiles-dir ./airbnb --project-dir ./airbnb --target prd --full-refresh
         env:
           SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
 
       - name: Generate dbt docs
         run: dbt docs generate --profiles-dir ./airbnb --project-dir ./airbnb --target prd
         env:
           SNOWFLAKE_PRIVATE_KEY_PATH: /home/runner/.secrets/snowflake_key.p8
+          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
 
       - name: Deploy docs to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
